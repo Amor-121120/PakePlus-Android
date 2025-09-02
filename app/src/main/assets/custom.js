@@ -1,23 +1,30 @@
 console.log(
     '%cbuild from PakePlus： https://github.com/Sjj1024/PakePlus',
     'color:orangered;font-weight:bolder'
-)
+);
 
-const downloadExts = [".apk", ".zip", ".rar", ".7z", ".exe", ".pdf", ".doc", ".xls"];
+// ==========================
+// 1 JS 层面伪装 UA
+// ==========================
+Object.defineProperty(navigator, 'userAgent', {
+    get: function () {
+        return "Mozilla/5.0 (Linux; Android 13; Pixel 7) " +
+               "AppleWebKit/537.36 (KHTML, like Gecko) " +
+               "Chrome/121.0.0.0 Mobile Safari/537.36";
+    }
+});
 
-// 判断是不是下载链接
-const isDownloadLink = (url) => {
-    if (!url) return false;
-    const lower = url.toLowerCase();
-    return downloadExts.some(ext => lower.includes(ext));
-};
+console.log("当前 UA:", navigator.userAgent);
 
-// 尝试外部打开
+// ==========================
+// 2 全部外部跳转逻辑
+// ==========================
 const openInExternal = (url) => {
     console.log("准备外部打开：", url);
 
     try {
         if (window.Android && window.Android.openExternal) {
+            // 如果 PakePlus Android 提供了接口，就调用
             window.Android.openExternal(url);
             return;
         }
@@ -29,38 +36,21 @@ const openInExternal = (url) => {
     location.href = url;
 };
 
-// 点击 hook
+// 点击事件 hook
 const hookClick = (e) => {
     const origin = e.target.closest('a');
-    const isBaseTargetBlank = document.querySelector('head base[target="_blank"]');
-
-    if (
-        (origin && origin.href && origin.target === '_blank') ||
-        (origin && origin.href && isBaseTargetBlank)
-    ) {
+    if (origin && origin.href) {
         e.preventDefault();
-
-        const url = origin.href;
-        if (isDownloadLink(url)) {
-            console.log('检测到下载链接，交给外部浏览器：', url);
-            openInExternal(url);
-        } else {
-            console.log('普通跳转，内部打开：', url);
-            location.href = url;
-        }
+        console.log('强制外部打开：', origin.href);
+        openInExternal(origin.href);
     }
 };
 
 // 重写 window.open
 window.open = function (url, target, features) {
     console.log('拦截 window.open:', url, target, features);
-    if (isDownloadLink(url)) {
-        console.log('检测到下载链接，外部打开');
-        openInExternal(url);
-    } else {
-        console.log('普通跳转，内部打开');
-        location.href = url;
-    }
+    openInExternal(url);
 };
 
+// 挂载事件监听
 document.addEventListener('click', hookClick, { capture: true });
